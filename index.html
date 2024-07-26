@@ -1,0 +1,351 @@
+<!DOCTYPE html><html><head><base href="https://websim.ai%20a%C3%BAn%20si%20le%20doy%20invitar%20amigo%20por%20telegram%20me%20dice%20para%20elegir%20red%20deve%20abrir%20directo%20el%20navedor%20de%20telegram%20y%20dejarme%20elejir%20los%20contactos%20a%20quien%20enviar%20y%20aun%20no%20me%20deja%20guardar%20ni%20cargar%20la%20p%C3%A1gina%20pa%20que%20no%20pierdan%20subpeogreso%20los%20jugadores">
+<title>Hamster Kombat - Tap Tap Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+  }
+  #game-container {
+    text-align: center;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    max-width: 90%;
+    width: 300px;
+  }
+  #hamster {
+    width: 200px;
+    height: 200px;
+    cursor: pointer;
+    margin: 20px auto;
+    transition: transform 0.1s;
+  }
+  #hamster:active {
+    transform: scale(0.95);
+  }
+  .bar {
+    width: 100%;
+    height: 20px;
+    background-color: #ddd;
+    margin: 10px 0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    transition: width 0.3s;
+  }
+  #energy-fill {
+    background-color: #4CAF50;
+  }
+  #level-fill {
+    background-color: #2196F3;
+  }
+  button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  #timer, #earnings, #level, #share-count {
+    font-size: 16px;
+    margin-top: 10px;
+  }
+  @keyframes punch {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  #hamster svg text {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #hamster:active svg text {
+    opacity: 1;
+    animation: punch 0.3s ease-in-out;
+  }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <h1>Cripto POW!</h1>
+  <div id="hamster">
+    <svg width="200" height="200" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="80" fill="#F4A460"></circle>
+      <circle cx="70" cy="80" r="10" fill="black"></circle>
+      <circle cx="130" cy="80" r="10" fill="black"></circle>
+      <ellipse cx="100" cy="120" rx="20" ry="10" fill="#FFA07A"></ellipse>
+      <path d="M80 140 Q100 160 120 140" fill="none" stroke="black" stroke-width="3"></path>
+      <text x="100" y="190" text-anchor="middle" font-size="24" font-weight="bold" fill="#FF6347">POW!</text>
+    </svg>
+  </div>
+  <div class="bar"><div id="energy-fill" class="bar-fill"></div></div>
+  <p id="energy">Energía: 500/500</p>
+  <div class="bar"><div id="level-fill" class="bar-fill"></div></div>
+  <p id="level">Nivel: 1</p>
+  <p id="timer">Tiempo para recarga completa: 24:00:00</p>
+  <p id="earnings">Ganancias: 0 ETH</p>
+  <p id="share-count">Compartidos hoy: 0/5</p>
+  <button onclick="shareFriend()">Compartir con amigo</button>
+  <button onclick="connectMetaMask()">Vincular MetaMask</button>
+</div>
+
+<script>
+let energy = 500;
+let maxEnergy = 500;
+let earnings = 0;
+let level = 1;
+let tapCount = 0;
+let lastTapTime = 0;
+let timerInterval;
+let energyRechargeInterval;
+let shareCount = 0;
+let lastShareReset = new Date().getTime();
+
+function updateEnergyBar() {
+  const energyFill = document.getElementById('energy-fill');
+  const energyPercentage = (energy / maxEnergy) * 100;
+  energyFill.style.width = `${energyPercentage}%`;
+  document.getElementById('energy').textContent = `Energía: ${energy}/${maxEnergy}`;
+}
+
+function updateLevelBar() {
+  const levelFill = document.getElementById('level-fill');
+  const levelPercentage = ((level - 1) % 20) * 5; // 5% per level, resets every 20 levels
+  levelFill.style.width = `${levelPercentage}%`;
+  document.getElementById('level').textContent = `Nivel: ${level}`;
+}
+
+function startTimer() {
+  let timeLeft = 24 * 60 * 60; // 24 hours in seconds
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    const hours = Math.floor(timeLeft / 3600);
+    const minutes = Math.floor((timeLeft % 3600) / 60);
+    const seconds = timeLeft % 60;
+    document.getElementById('timer').textContent = `Tiempo para recarga completa: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      energy = maxEnergy;
+      updateEnergyBar();
+      startTimer();
+    }
+  }, 1000);
+}
+
+function startEnergyRecharge() {
+  energyRechargeInterval = setInterval(() => {
+    if (energy < maxEnergy) {
+      energy = Math.min(maxEnergy, energy + 1);
+      updateEnergyBar();
+      saveProgress();
+    }
+  }, 4 * 60 * 60 * 1000); // Recharge 1 energy every 4 hours
+}
+
+document.getElementById('hamster').addEventListener('click', () => {
+  const currentTime = new Date().getTime();
+  if (currentTime - lastTapTime >= 100 && energy > 0) { // 100ms cooldown between taps
+    lastTapTime = currentTime;
+    energy--;
+    earnings += 0.0001; // 0.0001 ETH per tap
+    tapCount++;
+    updateEnergyBar();
+    document.getElementById('earnings').textContent = `Ganancias: ${earnings.toFixed(5)} ETH`;
+    
+    // Level up logic
+    if (tapCount % 3 === 0) {
+      if (level < 20 || (level < 100 && Math.random() < 0.1)) { // 100% chance up to level 20, then 10% chance up to level 100
+        level++;
+        updateLevelBar();
+      }
+    }
+    
+    // Trigger the POW! animation
+    const powText = document.querySelector('#hamster svg text');
+    powText.style.opacity = '1';
+    powText.style.animation = 'none';
+    powText.offsetHeight; // Trigger reflow
+    powText.style.animation = 'punch 0.3s ease-in-out';
+    setTimeout(() => {
+      powText.style.opacity = '0';
+    }, 300);
+
+    // Start timer on first energy use
+    if (!timerInterval) {
+      startTimer();
+      startEnergyRecharge();
+    }
+
+    saveProgress();
+  }
+});
+
+function shareFriend() {
+  const currentTime = new Date().getTime();
+  if (currentTime - lastShareReset > 24 * 60 * 60 * 1000) {
+    shareCount = 0;
+    lastShareReset = currentTime;
+  }
+
+  if (shareCount < 5) {
+    const referralLink = 'https://t.me/cripomario_bot';
+    const shareText = encodeURIComponent('¡Juega conmigo en Hamster Kombat y gana ETH!');
+    
+    // Abrir directamente el navegador de Telegram
+    const telegramWebLink = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${shareText}`;
+    window.open(telegramWebLink, '_blank');
+
+    // Asumimos que el compartir fue exitoso
+    setTimeout(() => {
+      handleSuccessfulShare();
+    }, 1000);
+  } else {
+    alert('Has alcanzado el límite de compartir por hoy. Inténtalo de nuevo en 24 horas.');
+  }
+}
+
+function handleSuccessfulShare() {
+  shareCount++;
+  earnings += 0.00050; // 0.00050 ETH per share
+  document.getElementById('earnings').textContent = `Ganancias: ${earnings.toFixed(5)} ETH`;
+  document.getElementById('share-count').textContent = `Compartidos hoy: ${shareCount}/5`;
+  saveProgress();
+}
+
+async function connectMetaMask() {
+  if (typeof window.ethereum !== 'undefined') {
+    try {
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const web3 = new Web3(window.ethereum);
+      const accounts = await web3.eth.getAccounts();
+      alert(`Conectado a MetaMask. Dirección: ${accounts[0]}`);
+      saveProgress();
+    } catch (error) {
+      console.error(error);
+      alert('Error al conectar con MetaMask. Por favor, instale la extensión si no la tiene.');
+    }
+  } else {
+    if (confirm('MetaMask no está instalado. ¿Desea descargarlo?')) {
+      window.open('https://metamask.io/download.html', '_blank');
+    }
+  }
+}
+
+function saveProgress() {
+  const progress = {
+    energy: energy,
+    earnings: earnings,
+    level: level,
+    tapCount: tapCount,
+    shareCount: shareCount,
+    lastShareReset: lastShareReset,
+    lastSave: new Date().getTime()
+  };
+  
+  // Guardar en localStorage
+  localStorage.setItem('hamsterKombatProgress', JSON.stringify(progress));
+  
+  // Guardar en IndexedDB
+  if ('indexedDB' in window) {
+    const request = indexedDB.open('HamsterKombatDB', 1);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('gameProgress')) {
+        db.createObjectStore('gameProgress', { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const transaction = db.transaction(['gameProgress'], 'readwrite');
+      const store = transaction.objectStore('gameProgress');
+      store.put({ id: 'currentProgress', ...progress });
+    };
+  }
+}
+
+function loadProgress() {
+  // Intentar cargar desde IndexedDB primero
+  if ('indexedDB' in window) {
+    const request = indexedDB.open('HamsterKombatDB', 1);
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const transaction = db.transaction(['gameProgress'], 'readonly');
+      const store = transaction.objectStore('gameProgress');
+      const getRequest = store.get('currentProgress');
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          applyProgress(getRequest.result);
+        } else {
+          // Si no hay datos en IndexedDB, intentar cargar desde localStorage
+          const savedProgress = localStorage.getItem('hamsterKombatProgress');
+          if (savedProgress) {
+            applyProgress(JSON.parse(savedProgress));
+          }
+        }
+      };
+    };
+  } else {
+    // Si IndexedDB no está disponible, cargar desde localStorage
+    const savedProgress = localStorage.getItem('hamsterKombatProgress');
+    if (savedProgress) {
+      applyProgress(JSON.parse(savedProgress));
+    }
+  }
+}
+
+function applyProgress(progress) {
+  const currentTime = new Date().getTime();
+  const timeSinceLastSave = (currentTime - progress.lastSave) / 1000; // in seconds
+  
+  energy = Math.min(maxEnergy, progress.energy + Math.floor(timeSinceLastSave / (4 * 60 * 60))); // Recharge energy
+  earnings = progress.earnings;
+  level = progress.level;
+  tapCount = progress.tapCount;
+  shareCount = progress.shareCount;
+  lastShareReset = progress.lastShareReset;
+  
+  updateEnergyBar();
+  updateLevelBar();
+  document.getElementById('earnings').textContent = `Ganancias: ${earnings.toFixed(5)} ETH`;
+  document.getElementById('share-count').textContent = `Compartidos hoy: ${shareCount}/5`;
+  
+  if (currentTime - lastShareReset > 24 * 60 * 60 * 1000) {
+    shareCount = 0;
+    lastShareReset = currentTime;
+    document.getElementById('share-count').textContent = `Compartidos hoy: ${shareCount}/5`;
+  }
+  
+  if (!timerInterval) {
+    startTimer();
+    startEnergyRecharge();
+  }
+}
+
+// Load progress when the game starts
+window.addEventListener('load', loadProgress);
+
+// Save progress every minute and when the page is about to be unloaded
+setInterval(saveProgress, 60000);
+window.addEventListener('beforeunload', saveProgress);
+
+// Attempt to load progress immediately
+loadProgress();
+</script>
+</body></html>
